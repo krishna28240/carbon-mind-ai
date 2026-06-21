@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: #041a12;
+    background-image: 
+      radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.15) 0%, transparent 45%),
+      radial-gradient(circle at 90% 80%, rgba(5, 150, 105, 0.1) 0%, transparent 45%),
+      radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 1) 0%, rgba(4, 26, 18, 1) 100%);
+    background-attachment: fixed;
+    color: #ffffff;
+    min-height: 100vh;
+  }
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.035) !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.glass-header {
+  background: rgba(255, 255, 255, 0.02) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.stat-card-glass {
+  background: rgba(16, 185, 129, 0.06) !important;
+  border: 1px solid rgba(16, 185, 129, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.stat-card-amber {
+  background: rgba(245, 158, 11, 0.05) !important;
+  border: 1px solid rgba(245, 158, 11, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.stat-card-blue {
+  background: rgba(56, 189, 248, 0.05) !important;
+  border: 1px solid rgba(56, 189, 248, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.stat-card-purple {
+  background: rgba(192, 132, 252, 0.05) !important;
+  border: 1px solid rgba(192, 132, 252, 0.15) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: white !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+}
+
+.glass-btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Custom gorgeous scrollbar for container elements */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
