@@ -33,6 +33,11 @@ async function startServer() {
 
   app.use(express.json());
 
+  // API Config Check
+  app.get("/api/config", (req, res) => {
+    res.json({ hasApiKey: !!process.env.GEMINI_API_KEY });
+  });
+
   // API Endpoint for AI Carbon Coaching
   app.post("/api/coach", async (req, res) => {
     try {

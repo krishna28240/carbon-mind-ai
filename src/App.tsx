@@ -13,6 +13,7 @@ import Dashboard from './components/Dashboard';
 import Gamification from './components/Gamification';
 import EducationalHub from './components/EducationalHub';
 import CoachChat from './components/CoachChat';
+import TestRunner from './components/TestRunner';
 
 import {
   Leaf,
@@ -161,6 +162,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen text-neutral-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-neutral-950">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 bg-emerald-600 text-teal-950 font-bold px-4 py-2.5 rounded-xl border border-emerald-500/30">Skip to main content</a>
       
       {/* Premium Glass Header */}
       <header className="glass-header px-6 py-4 flex items-center justify-between sticky top-0 z-40">
@@ -228,7 +230,7 @@ export default function App() {
       </header>
 
       {/* Main Container: Split Desktop layout (Left views, Right coach docked overlay) */}
-      <main className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <main id="main" className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         
         {/* Left Column: Primary views selector & tabs (7 units) or CSR department boards */}
         <div className="lg:col-span-7 flex flex-col space-y-6">
@@ -306,6 +308,7 @@ export default function App() {
             )}
             {activeTab === 'education' && <EducationalHub onAskCoach={handleEducationalAsk} logs={logs} />}
           </div>
+          <TestRunner />
         </div>
 
         {/* Right Column: AI Climate Coach Chat Panel permanently docked (5 units) */}

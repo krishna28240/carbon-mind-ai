@@ -15,7 +15,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { TrendingUp, AlertTriangle, Scale, ShieldAlert, CheckCircle, Briefcase, Users, Calendar, Globe } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Scale, ShieldAlert, CheckCircle, Briefcase, Users, Calendar, Globe, TreePine } from 'lucide-react';
 
 interface DashboardProps {
   logs: FootprintLog[];
@@ -465,6 +465,45 @@ export default function Dashboard({ logs, companyView }: DashboardProps) {
         <p className="text-[10px] text-neutral-400 mt-3 text-center leading-relaxed opacity-90">
           The Paris Accord carbon offset path requires every global citizen to settle below <strong>2.0 Metric Tons / Year</strong> by 2030. Average urban Indians currently emit ~3.2 Tons due to power grit coal mixes and private vehicles, while global averages stand at ~4.8 Tons.
         </p>
+      </div>
+
+      {/* FooterStats — "Your footprint is X% of India average" + tree equivalent */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+        <div className="p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-2xl flex items-center gap-3.5">
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-450 shrink-0">
+            <Scale className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="block text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+              {isBilingual ? 'राष्ट्रीय औसत सूचकांक • National Average Index' : 'National Average Index'}
+            </span>
+            <span className="block text-sm font-bold text-neutral-100 mt-1">
+              {isBilingual ? (
+                <>आपकी कार्बन मात्रा राष्ट्रीय औसत का <span className="text-teal-400 font-extrabold font-mono">{((annualizedMetric / 1.9) * 100 || 0).toFixed(0)}%</span> है</>
+              ) : (
+                <>Your footprint is <span className="text-emerald-450 font-extrabold font-mono">{((annualizedMetric / 1.9) * 105 || 0).toFixed(0)}%</span> of Indian Average</>
+              )}
+            </span>
+          </div>
+        </div>
+
+        <div className="p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-2xl flex items-center gap-3.5">
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-450 shrink-0">
+            <TreePine className="w-5 h-5 animate-pulse" />
+          </div>
+          <div>
+            <span className="block text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+              {isBilingual ? 'अवशोषण समतुल्य वन • Forest Canopy Offset' : 'Forest Canopy Offset Equivalent'}
+            </span>
+            <span className="block text-sm font-bold text-neutral-100 mt-1">
+              {isBilingual ? (
+                <>तुलना में आपको <span className="text-teal-400 font-extrabold font-mono">{Math.ceil((annualizedMetric * 1000) / 22 || 0)}</span> पेड़ों की आवश्यकता है</>
+              ) : (
+                <>Requires <span className="text-emerald-450 font-extrabold font-mono">{Math.ceil((annualizedMetric * 1000) / 22 || 0)}</span> mature trees to absorb fully</>
+              )}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

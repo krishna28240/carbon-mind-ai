@@ -25,8 +25,29 @@ export default function CoachChat({
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [hasApiKey, setHasApiKey] = useState(true);
+  const [cooldown, setCooldown] = useState(0);
 
   const dialogEndRef = useRef<HTMLDivElement>(null);
+
+  // API Config handshake
+  useEffect(() => {
+    fetch('/api/config')
+      .then((res) => res.json())
+      .then((data) => {
+        setHasApiKey(data.hasApiKey);
+      })
+      .catch(() => setHasApiKey(false));
+  }, []);
+
+  // Cooldown countdown loop
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((c) => c - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   // Seed warm greeting on initial load
   useEffect(() => {
@@ -63,6 +84,14 @@ I have tailored my climate advice specifically for our cities. Do you want to re
   const handleSendMessage = async (textToSend: string) => {
     const text = textToSend.trim();
     if (!text) return;
+
+    if (cooldown > 0) {
+      setApiError(`Please wait ${cooldown} seconds before dispatching another recommendation query.`);
+      return;
+    }
+
+    // Trigger 3 second rate limiting cooldown
+    setCooldown(3);
 
     // 1. Add User Message
     const userMsg: ChatMessage = {
@@ -171,6 +200,13 @@ I have tailored my climate advice specifically for our cities. Do you want to re
         </div>
       </div>
 
+      {!hasApiKey && (
+        <div className="bg-amber-950/30 border-b border-amber-500/20 px-4 py-2 flex items-center gap-2 text-[10px] text-amber-300">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span>Tara Coach running in sandbox fallback mode. Add GEMINI_API_KEY in secrets tab.</span>
+        </div>
+      )}
+
       {/* Messages Dialogue Canvas */}
       <div className="flex-grow overflow-y-auto p-4 space-y-4 max-h-[380px] bg-transparent scrollbar-thin">
         {messages.map((msg) => {
@@ -244,16 +280,20 @@ I have tailored my climate advice specifically for our cities. Do you want to re
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder={`Ask Tara about carbon reductions in ${userCity}...`}
-          disabled={isTyping}
+          placeholder={cooldown > 0 ? `Please wait ${cooldown} seconds...` : `Ask Tara about carbon reductions in ${userCity}...`}
+          disabled={isTyping || cooldown > 0}
           className="flex-grow glass-input rounded-xl px-4 py-2.5 text-xs focus:outline-none disabled:opacity-60"
         />
         <button
           type="submit"
-          disabled={isTyping || !inputText.trim()}
-          className="p-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/5 text-neutral-905 disabled:text-neutral-500 rounded-xl transition-all cursor-pointer shadow-md"
+          disabled={isTyping || cooldown > 0 || !inputText.trim()}
+          className="p-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/5 text-neutral-905 disabled:text-neutral-500 rounded-xl transition-all cursor-pointer shadow-md flex items-center justify-center min-w-[38px]"
         >
-          <Send className="w-4 h-4 shrink-0 stroke-[2.5px]" />
+          {cooldown > 0 ? (
+            <span className="text-[10px] font-mono font-bold text-neutral-400">{cooldown}s</span>
+          ) : (
+            <Send className="w-4 h-4 shrink-0 stroke-[2.5px]" />
+          )}
         </button>
       </form>
     </div>
