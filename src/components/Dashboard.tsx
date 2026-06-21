@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { FootprintLog, CSRMetric } from '../types';
 import { EMISSION_FACTORS } from '../data/carbonData';
 import {
@@ -15,7 +15,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { TrendingUp, AlertTriangle, Scale, ShieldAlert, CheckCircle, Briefcase, Users, Calendar } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Scale, ShieldAlert, CheckCircle, Briefcase, Users, Calendar, Globe } from 'lucide-react';
 
 interface DashboardProps {
   logs: FootprintLog[];
@@ -23,6 +23,9 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ logs, companyView }: DashboardProps) {
+  const [timeframe, setTimeframe] = useState<'monthly' | 'annual'>('annual');
+  const [isBilingual, setIsBilingual] = useState(true);
+
   // 1. Calculate Core Cumulative Footprints
   const totalCo2e = useMemo(() => {
     return logs.reduce((sum, log) => sum + log.co2e, 0);
@@ -36,13 +39,15 @@ export default function Dashboard({ logs, companyView }: DashboardProps) {
         totals[log.category] += log.co2e;
       }
     });
+
+    const scale = timeframe === 'monthly' ? (30.5 / 7) : 1; // estimate monthly if logs are weekly-centric or keep clean relative
     return [
-      { name: 'Transport (Commute)', value: Number(totals.transport.toFixed(1)), color: '#38bdf8' },
-      { name: 'Food (Dietary)', value: Number(totals.food.toFixed(1)), color: '#34d399' },
-      { name: 'Energy (Household)', value: Number(totals.energy.toFixed(1)), color: '#fbbf24' },
-      { name: 'Shopping (Consumer)', value: Number(totals.shopping.toFixed(1)), color: '#c084fc' }
+      { name: isBilingual ? 'परिवहन Commute' : 'Transport (Commute)', value: Number((totals.transport * scale).toFixed(1)), color: '#38bdf8' },
+      { name: isBilingual ? 'भोजन Dietary' : 'Food (Dietary)', value: Number((totals.food * scale).toFixed(1)), color: '#34d399' },
+      { name: isBilingual ? 'ऊर्जा Household' : 'Energy (Household)', value: Number((totals.energy * scale).toFixed(1)), color: '#fbbf24' },
+      { name: isBilingual ? 'खरीददारी Shopping' : 'Shopping (Consumer)', value: Number((totals.shopping * scale).toFixed(1)), color: '#c084fc' }
     ].filter(item => item.value > 0);
-  }, [logs]);
+  }, [logs, timeframe, isBilingual]);
 
   // 2. Day-over-day Emission Trends (grouped by unique date)
   const dailyTrendData = useMemo(() => {
@@ -86,12 +91,8 @@ export default function Dashboard({ logs, companyView }: DashboardProps) {
   }, [logs]);
 
   // 3. Indian City Benchmark Comparison Data
-  // Annualized translation of user's typical weekly emission habits vs standard benchmarks
-  // If the user logs average ~X kg/day, their annual is (X * 365) / 1000 tons.
-  // We compute a realistic average annualized carbon intensity based on active logs.
   const annualizedMetric = useMemo(() => {
     if (logs.length === 0) return 0;
-    // Discover date range of active logs
     const dates = logs.map(l => new Date(l.date).getTime());
     const minD = Math.min(...dates);
     const maxD = Math.max(...dates);
@@ -101,17 +102,25 @@ export default function Dashboard({ logs, companyView }: DashboardProps) {
     return (dailyAvg * 365.25) / 1000; // Tons CO2e per year
   }, [logs, totalCo2e]);
 
+  // Current metric value scaled according to selected timeframe (monthly t vs annual t)
+  const currentFootprintScaledMetric = useMemo(() => {
+    if (timeframe === 'monthly') {
+      return (annualizedMetric / 12); // Tons CO2e per Month
+    }
+    return annualizedMetric; // Tons CO2e per Year
+  }, [timeframe, annualizedMetric]);
+
   const benchmarkData = useMemo(() => {
+    const scaleFactor = timeframe === 'monthly' ? (1 / 12) : 1;
     return [
-      { name: 'Your Footprint', value: Number(annualizedMetric.toFixed(2)), color: '#34d399', isUser: true },
-      { name: 'Global Target (UN)', value: 2.0, color: '#38bdf8', isUser: false },
-      { name: 'Indian Urban Avg', value: 3.2, color: '#eab308', isUser: false },
-      { name: 'Indian National Avg', value: 1.9, color: '#a3a3a3', isUser: false },
+      { name: isBilingual ? 'आपका फुटप्रिंट Your Path' : 'Your Footprint', value: Number(currentFootprintScaledMetric.toFixed(2)), color: '#34d399', isUser: true },
+      { name: isBilingual ? 'संयुक्त राष्ट्र यूएन लक्ष्य UN Target' : 'Global UN Target', value: Number((2.0 * scaleFactor).toFixed(2)), color: '#38bdf8', isUser: false },
+      { name: isBilingual ? 'भारतीय शहरी औसत Urban Avg' : 'Indian Urban Avg', value: Number((3.2 * scaleFactor).toFixed(2)), color: '#eab308', isUser: false },
+      { name: isBilingual ? 'भारतीय राष्ट्रीय औसत National Avg' : 'India National Avg', value: Number((1.9 * scaleFactor).toFixed(2)), color: '#a3a3a3', isUser: false },
     ];
-  }, [annualizedMetric]);
+  }, [currentFootprintScaledMetric, timeframe, isBilingual]);
 
   // 4. CSR Metric Breakdown for Mid-Size Company (Secondary Audience)
-  // Structured CSR metrics aligning department shares
   const csrDepartmentData: CSRMetric[] = [
     { department: 'Engineering / Dev Team', emissions: 12.4, employeesCount: 65 },
     { department: 'Sales & Field Marketing', emissions: 24.2, employeesCount: 32 },
@@ -123,10 +132,63 @@ export default function Dashboard({ logs, companyView }: DashboardProps) {
 
   return (
     <div className="space-y-6">
-      {/* Dynamic Key Metric Blocks */}
+      {/* Premium Dashboard Controls (Timeframe & Bilingual Language) */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white/5 border border-white/10 p-4 rounded-2xl">
+        <div>
+          <h2 className="text-sm font-semibold text-white tracking-wider uppercase">
+            {isBilingual ? 'डैशबोर्ड सेटिंग्स • Dashboard Panel Controls' : 'Dashboard Panel Controls'}
+          </h2>
+          <p className="text-xs text-neutral-400 mt-1">Configure comparative time projections and localized language modes</p>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Timeframe selector */}
+          <div className="grid grid-cols-2 p-1 bg-neutral-900 border border-white/10 rounded-xl text-xs font-semibold flex-1 sm:flex-none">
+            <button
+              onClick={() => setTimeframe('monthly')}
+              aria-label="Toggle Monthly Projection View"
+              className={`py-1.5 px-3 rounded-lg text-center transition-all cursor-pointer ${
+                timeframe === 'monthly'
+                  ? 'bg-emerald-600 text-teal-950 font-bold'
+                  : 'text-neutral-300 hover:text-white'
+              }`}
+            >
+              {isBilingual ? 'मासिक Monthly' : 'Monthly'}
+            </button>
+            <button
+              onClick={() => setTimeframe('annual')}
+              aria-label="Toggle Annualized Projection View"
+              className={`py-1.5 px-3 rounded-lg text-center transition-all cursor-pointer ${
+                timeframe === 'annual'
+                  ? 'bg-emerald-600 text-teal-950 font-bold'
+                  : 'text-neutral-300 hover:text-white'
+              }`}
+            >
+              {isBilingual ? 'वार्षिक Annual' : 'Annual'}
+            </button>
+          </div>
+
+          {/* Bilingual Hindi selector */}
+          <button
+            onClick={() => setIsBilingual(!isBilingual)}
+            aria-label="Toggle Bilingual Mode"
+            className={`flex items-center gap-1.5 p-2 rounded-xl text-xs border font-bold transition-all cursor-pointer ${
+              isBilingual
+                ? 'bg-purple-950/40 border-purple-500/30 text-purple-300'
+                : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-neutral-800'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>{isBilingual ? 'Bilingual: ON' : 'Bilingual: OFF'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Dynamic Key Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="glass rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">Logged Emissions</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">
+            {isBilingual ? 'कुल दर्ज उत्सर्जन • Logged Emissions' : 'Logged Emissions'}
+          </span>
           <div className="flex items-baseline gap-1 mt-2">
             <span className="text-3xl font-extrabold text-white">
               {totalCo2e.toLocaleString('en-IN', { maximumFractionDigits: 1 })}
@@ -134,42 +196,57 @@ export default function Dashboard({ logs, companyView }: DashboardProps) {
             <span className="text-xs text-neutral-400 font-medium font-mono">kg CO2e</span>
           </div>
           <span className="text-[10px] text-emerald-400 mt-3 block font-semibold flex items-center gap-1">
-            <CheckCircle className="w-3 h-3 text-emerald-450" /> Updated in real-time
-          </span>
-        </div>
-
-        <div className="glass rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">Annualized Rate</span>
-          <div className="flex items-baseline gap-1 mt-2">
-            <span className="text-3xl font-extrabold text-emerald-400">
-              {annualizedMetric.toFixed(2)}
-            </span>
-            <span className="text-xs text-neutral-400 font-medium">Tons / Year</span>
-          </div>
-          <span className={`text-[10px] mt-3 block font-semibold flex items-center gap-1 ${
-            annualizedMetric <= 2.0 ? 'text-emerald-400' : 'text-amber-400'
-          }`}>
-            <Scale className="w-3 h-3" /> 
-            {annualizedMetric <= 2.0 ? 'Below UN limit target' : 'Above global warming thresholds'}
-          </span>
-        </div>
-
-        <div className="glass rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">Eco-Mitigation Score</span>
-          <div className="flex items-baseline gap-1 mt-2">
-            <span className="text-3xl font-extrabold text-blue-400">
-              {Math.round(totalCo2e > 0 ? (100 - (totalCo2e / 30)) * 1.5 : 100)}
-            </span>
-            <span className="text-xs text-neutral-400 font-medium">/ 100</span>
-          </div>
-          <span className="text-[10px] text-neutral-300 mt-3 block font-medium opacity-90">
-            Based on commutes & dietary logs
+            <CheckCircle className="w-3 h-3 text-emerald-450" /> {isBilingual ? 'वास्तविक समय अपडेट • Live Audit' : 'Updated in real-time'}
           </span>
         </div>
 
         <div className="glass rounded-2xl p-5 shadow-lg relative overflow-hidden">
           <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">
-            {companyView ? 'Company CSR Pool' : 'Personal Offset Pool'}
+            {timeframe === 'annual' 
+              ? (isBilingual ? 'वार्षिक उत्सर्जन दर • Annualized Rate' : 'Annualized Rate')
+              : (isBilingual ? 'मासिक उत्सर्जन दर • Monthly Estimate' : 'Monthly Rate Estimate')
+            }
+          </span>
+          <div className="flex items-baseline gap-1 mt-2">
+            <span className="text-3xl font-extrabold text-emerald-400">
+              {currentFootprintScaledMetric.toFixed(2)}
+            </span>
+            <span className="text-xs text-neutral-400 font-medium">
+              {timeframe === 'annual' ? 'Tons / Year' : 'Tons / Month'}
+            </span>
+          </div>
+          <span className={`text-[10px] mt-3 block font-semibold flex items-center gap-1 ${
+            currentFootprintScaledMetric <= (timeframe === 'annual' ? 2.0 : (2.0 / 12)) ? 'text-emerald-400' : 'text-amber-400'
+          }`}>
+            <Scale className="w-3 h-3" /> 
+            {currentFootprintScaledMetric <= (timeframe === 'annual' ? 2.0 : (2.0 / 12)) 
+              ? (isBilingual ? 'पेरिसAccord सीमा के भीतर • Below Target Limit' : 'Below UN limit target')
+              : (isBilingual ? 'सीमा से अधिक • Above Safe Limit' : 'Above global warming thresholds')
+            }
+          </span>
+        </div>
+
+        <div className="glass rounded-2xl p-5 shadow-lg relative overflow-hidden">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">
+            {isBilingual ? 'मितव्ययिता स्कोर • Mitigation Score' : 'Eco-Mitigation Score'}
+          </span>
+          <div className="flex items-baseline gap-1 mt-2">
+            <span className="text-3xl font-extrabold text-blue-400">
+              {Math.round(totalCo2e > 0 ? Math.max(15, 100 - (totalCo2e / 30)) : 100)}
+            </span>
+            <span className="text-xs text-neutral-400 font-medium">/ 100</span>
+          </div>
+          <span className="text-[10px] text-neutral-300 mt-3 block font-medium opacity-90">
+            {isBilingual ? 'कम उत्सर्जन पर बेहतर • High is greener' : 'Based on commutes & dietary logs'}
+          </span>
+        </div>
+
+        <div className="glass rounded-2xl p-5 shadow-lg relative overflow-hidden">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">
+            {companyView 
+              ? (isBilingual ? 'कॉर्पोरेट सीएसआर पूल • Co CSR Pool' : 'Company CSR Pool')
+              : (isBilingual ? 'व्यक्तिगत ऑफसेट • Personal Offset' : 'Personal Offset Pool')
+            }
           </span>
           <div className="flex items-baseline gap-1 mt-2">
             <span className="text-3xl font-extrabold text-purple-400">
@@ -181,7 +258,7 @@ export default function Dashboard({ logs, companyView }: DashboardProps) {
             <span className="text-xs text-neutral-400 font-medium font-mono">{companyView ? 'Tons' : 'kg'} CO2e</span>
           </div>
           <span className="text-[10px] text-purple-300 mt-3 block font-semibold flex items-center gap-1">
-            <Briefcase className="w-3 h-3" /> Shared carbon accountability
+            <Briefcase className="w-3 h-3" /> {isBilingual ? 'कंपनी सीएसआर सहभागिता • CSR Bonded' : 'Shared carbon accountability'}
           </span>
         </div>
       </div>

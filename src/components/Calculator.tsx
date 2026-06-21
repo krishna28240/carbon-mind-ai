@@ -11,19 +11,60 @@ interface CalculatorProps {
 
 export default function Calculator({ onLogAdded, logs, onLogRemoved }: CalculatorProps) {
   const [activeTab, setActiveTab] = useState<EmissionCategory>('transport');
-  const [selectedActivityId, setSelectedActivityId] = useState(EMISSION_FACTORS.filter(f => f.category === 'transport')[0].id);
+  const [selectedActivityId, setSelectedActivityId] = useState<string>(
+    EMISSION_FACTORS.find(f => f.category === 'transport')?.id || EMISSION_FACTORS[0].id
+  );
   const [inputValue, setInputValue] = useState<number | ''>('');
   const [notes, setNotes] = useState('');
   const [isCSR, setIsCSR] = useState(false);
+  const [errorText, setErrorText] = useState<string>('');
+
+  /**
+   * Cleans text from raw input by stripping HTML markup tags.
+   * @param text Original raw string
+   * @returns Cleaned text
+   */
+  const sanitizeText = (text: string): string => {
+    return text.toString().replace(/<[^>]*>/g, '').trim().substring(0, 120);
+  };
+
+  /**
+   * Sanitizes numeric raw strings and clamps values within [0.01, 10000] limits.
+   * @param valRaw Raw quantity numeric string
+   * @returns Processed clean number or empty string
+   */
+  const sanitizeAndClampValue = (valRaw: string): number | '' => {
+    const cleanStr = valRaw.replace(/[^0-9.]/g, '');
+    if (cleanStr === '') {
+      setErrorText('');
+      return '';
+    }
+    const valParsed = parseFloat(cleanStr);
+    if (isNaN(valParsed)) {
+      setErrorText('Please enter a valid number.');
+      return '';
+    }
+    if (valParsed <= 0) {
+      setErrorText('Quantity should be positive and non-zero.');
+      return 0;
+    }
+    if (valParsed > 10000) {
+      setErrorText('Maximum activity limit is 10,000 for safety checks.');
+      return 10000;
+    }
+    setErrorText('');
+    return valParsed;
+  };
 
   // Switch selected activity when changing category tabs
   const handleTabChange = (category: EmissionCategory) => {
     setActiveTab(category);
-    const firstOfCat = EMISSION_FACTORS.filter(f => f.category === category)[0];
+    const firstOfCat = EMISSION_FACTORS.find(f => f.category === category);
     if (firstOfCat) {
       setSelectedActivityId(firstOfCat.id);
     }
     setInputValue('');
+    setErrorText('');
   };
 
   const selectedFactor = useMemo(() => {
@@ -33,28 +74,44 @@ export default function Calculator({ onLogAdded, logs, onLogRemoved }: Calculato
   // Live footprint calculation for current inputs
   const currentCo2Calculation = useMemo(() => {
     if (!inputValue || !selectedFactor) return 0;
-    return Number(inputValue) * selectedFactor.factor;
+    const computed = Number(inputValue) * selectedFactor.factor;
+    // clamp co2e calculated result to 0-10000 kg as well
+    return Math.max(0, Math.min(10000, computed));
   }, [inputValue, selectedFactor]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue || inputValue <= 0 || !selectedFactor) return;
+    const cleanValue = typeof inputValue === 'number' ? inputValue : 0;
+    if (cleanValue <= 0) {
+      setErrorText('Please enter a valid positive quantity.');
+      return;
+    }
+    if (!selectedFactor) {
+      setErrorText('No valid energy factor selected.');
+      return;
+    }
 
-    const newLog: FootprintLog = {
-      id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      category: activeTab,
-      activityId: selectedFactor.id,
-      activityName: selectedFactor.name,
-      value: Number(inputValue),
-      co2e: currentCo2Calculation,
-      date: new Date().toISOString().split('T')[0],
-      notes: notes.trim() || undefined,
-      isCSR: isCSR
-    };
+    try {
+      const sanitizedNotes = sanitizeText(notes);
+      const newLog: FootprintLog = {
+        id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        category: activeTab,
+        activityId: selectedFactor.id,
+        activityName: selectedFactor.name,
+        value: cleanValue,
+        co2e: currentCo2Calculation,
+        date: new Date().toISOString().split('T')[0],
+        notes: sanitizedNotes || undefined,
+        isCSR: isCSR
+      };
 
-    onLogAdded(newLog);
-    setInputValue('');
-    setNotes('');
+      onLogAdded(newLog);
+      setInputValue('');
+      setNotes('');
+      setErrorText('');
+    } catch (err) {
+      setErrorText('Failed to calculate. Please check inputs again.');
+    }
   };
 
   const categoryConfigs = {
@@ -103,12 +160,18 @@ export default function Calculator({ onLogAdded, logs, onLogRemoved }: Calculato
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-300 mb-2">
+          <label htmlFor="calculator-activity-type" className="block text-xs font-semibold uppercase tracking-wider text-neutral-300 mb-2">
             Activity Type
           </label>
           <select
+            id="calculator-activity-type"
             value={selectedActivityId}
-            onChange={(e) => setSelectedActivityId(e.target.value)}
+            onChange={(e) => {
+              setSelectedActivityId(e.target.value);
+              setInputValue('');
+              setErrorText('');
+            }}
+            aria-label="Select carbon active emission activity type"
             className="w-full glass-input rounded-xl px-4 py-3 text-sm focus:outline-none transition-colors outline-none"
           >
             {EMISSION_FACTORS.filter((f) => f.category === activeTab).map((factor) => (
@@ -127,34 +190,43 @@ export default function Calculator({ onLogAdded, logs, onLogRemoved }: Calculato
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-300 mb-2">
+            <label htmlFor="calculator-quantity" className="block text-xs font-semibold uppercase tracking-wider text-neutral-300 mb-2">
               Quantity / Distance ({selectedFactor?.unit})
             </label>
             <input
-              type="number"
-              min="0.01"
-              step="any"
+              id="calculator-quantity"
+              type="text"
+              inputMode="decimal"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value === '' ? '' : parseFloat(e.target.value))}
+              onChange={(e) => setInputValue(sanitizeAndClampValue(e.target.value))}
               placeholder={`Enter total ${selectedFactor?.unit}`}
               required
+              aria-label={`Quantity in ${selectedFactor?.unit}`}
               className="w-full glass-input rounded-xl px-4 py-3 text-sm focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-300 mb-2">
+            <label htmlFor="calculator-notes" className="block text-xs font-semibold uppercase tracking-wider text-neutral-300 mb-2">
               Notes / Context (Optional)
             </label>
             <input
+              id="calculator-notes"
               type="text"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={(e) => setNotes(sanitizeText(e.target.value))}
               placeholder="e.g. Office commute, Team Lunch"
+              aria-label="Add optional context notes"
               className="w-full glass-input rounded-xl px-4 py-3 text-sm focus:outline-none"
             />
           </div>
         </div>
+
+        {errorText && (
+          <div id="calculator-error-message" className="p-3 bg-red-950/40 border border-red-500/20 rounded-xl text-xs text-red-300 font-semibold" aria-live="assertive">
+            {errorText}
+          </div>
+        )}
 
         {/* CSR Alignment Checkbox */}
         <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
@@ -163,6 +235,7 @@ export default function Calculator({ onLogAdded, logs, onLogRemoved }: Calculato
             id="csr-toggle"
             checked={isCSR}
             onChange={(e) => setIsCSR(e.target.checked)}
+            aria-label="Allocate log under Company CSR pool"
             className="w-4.5 h-4.5 text-emerald-605 bg-neutral-900 border-white/10 rounded focus:ring-emerald-500 focus:ring-opacity-20 cursor-pointer"
           />
           <label htmlFor="csr-toggle" className="flex items-center gap-2 cursor-pointer select-none">

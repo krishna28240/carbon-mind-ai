@@ -304,7 +304,7 @@ export default function App() {
                 badges={computedBadges}
               />
             )}
-            {activeTab === 'education' && <EducationalHub onAskCoach={handleEducationalAsk} />}
+            {activeTab === 'education' && <EducationalHub onAskCoach={handleEducationalAsk} logs={logs} />}
           </div>
         </div>
 
